@@ -936,7 +936,7 @@ function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(credentials)
+        body: JSON.stringify({ email, password }),
       })
       .then(response => {
         console.log('Response status:', response.status);
