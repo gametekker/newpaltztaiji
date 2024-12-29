@@ -15,7 +15,9 @@ import { User, Clock, Info, AlertCircle, Plus } from 'lucide-react';
 
 const fontGlobal="'Poppins'";
 
-const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:5000';
+const BASE_URL = process.env.NODE_ENV === 'production' 
+  ? '' // Empty string for relative URLs in production
+  : 'http://127.0.0.1:5000';
 
 var loginName="";
 
