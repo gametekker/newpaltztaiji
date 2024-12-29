@@ -925,6 +925,7 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -937,36 +938,23 @@ function LoginPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
-      })
-      .then(response => {
-        console.log('Response status:', response.status);
-        if (!response.ok) {
-          return response.json().then(err => {
-            console.error('Error response:', err);
-            throw new Error(err.message || 'Failed to login');
-          });
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log('Login successful, token received');
-        // Store token and handle successful login
-      })
-      .catch(error => {
-        console.error('Login error:', error);
       });
 
+      console.log('Response status:', response.status);
+      
       const data = await response.json();
-
+      
       if (!response.ok) {
-        throw new Error(data.message || 'An error occurred');
+        throw new Error(data.message || 'Failed to login');
       }
 
+      console.log('Login successful, token received');
       // Save token to session storage
       sessionStorage.setItem('token', data.token);
       navigate('/');
       
     } catch (err) {
+      console.error('Login error:', err);
       setError(err.message);
     }
   };
