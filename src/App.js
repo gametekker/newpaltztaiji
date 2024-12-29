@@ -932,7 +932,7 @@ function LoginPage() {
 
     try {
       const endpoint = isLogin ? `${BASE_URL}/api/login` : `${BASE_URL}/api/signup`;
-      const response = await fetch('/api/login', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
