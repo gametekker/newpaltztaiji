@@ -931,12 +931,29 @@ function LoginPage() {
 
     try {
       const endpoint = isLogin ? `${BASE_URL}/api/login` : `${BASE_URL}/api/signup`;
-      const response = await fetch(endpoint, {
+      const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(credentials)
+      })
+      .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+          return response.json().then(err => {
+            console.error('Error response:', err);
+            throw new Error(err.message || 'Failed to login');
+          });
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Login successful, token received');
+        // Store token and handle successful login
+      })
+      .catch(error => {
+        console.error('Login error:', error);
       });
 
       const data = await response.json();
