@@ -7,6 +7,8 @@ from flask_cors import CORS
 import logging
 from datetime import datetime, timedelta
 import sys
+import time
+import shelve
 
 app = Flask(__name__, static_folder='newpaltztaiji/build/', static_url_path='')
 
@@ -28,8 +30,31 @@ app.config['SECRET_KEY'] = 'mysupersecretkey123'
 def serve():
     return send_from_directory(app.static_folder, 'index.html')
 
-# Mock database (replace with your actual database)
-users = {}
+class PersistentDict:
+    def __init__(self, filename='users.db'):
+        self.filename = filename
+        # Initialize the file if it doesn't exist
+        with shelve.open(filename) as d:
+            pass
+    
+    def __getitem__(self, key):
+        with shelve.open(self.filename) as d:
+            return d[key]
+    
+    def __setitem__(self, key, value):
+        with shelve.open(self.filename) as d:
+            d[key] = value
+    
+    def get(self, key, default=None):
+        with shelve.open(self.filename) as d:
+            return d.get(key, default)
+    
+    def __contains__(self, key):
+        with shelve.open(self.filename) as d:
+            return key in d
+
+# Replace the users dict with our persistent version
+users = PersistentDict()
 
 def token_required(f):
     @wraps(f)
@@ -57,7 +82,7 @@ def token_required(f):
             if not current_user:
                 raise Exception('User not found')
         except Exception as e:
-            print(f"Token verification failed: {str(e)}")  # Debug print
+            logger.debug(f"Token verification failed: {str(e)}")  # Debug print
             return jsonify({'message': 'Token is invalid'}), 401
         
         return f(current_user, *args, **kwargs)
@@ -96,7 +121,8 @@ def signup():
         'password': hashed_password
     }
     logger.debug(f'User created: {email}')
-    
+    time.sleep(.2)  # 200ms delay
+
     try:
         start_time = datetime.now()
         token = jwt.encode(
@@ -248,10 +274,10 @@ def get_user(current_user):
                     "full": True,
                     "registered": False,
                     "students_signed_up": [
-                        {"id": "student-0", "name": "bobby"},
-                        {"id": "student-1", "name": "joe"},
-                        {"id": "student-2", "name": "rudolph"},
-                        {"id": "student-3", "name": "santa"}
+                        {"id": "student-0", "name": "bobby", "paid": True},
+                        {"id": "student-1", "name": "joe", "paid": True},
+                        {"id": "student-2", "name": "rudolph", "paid": True},
+                        {"id": "student-3", "name": "santa", "paid": True}
                     ]
                 }
             ],

@@ -1,0 +1,34 @@
+2024-12-30 00:31:11.643 WARNING:  * Debugger is active!
+2024-12-30 00:31:11.649 INFO:  * Debugger PIN: 125-300-168
+2024-12-30 00:31:15.371 INFO: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2024-12-30 00:31:15.371 INFO: [33mPress CTRL+C to quit[0m
+2024-12-30 00:31:15.372 INFO:  * Restarting with stat
+2024-12-30 00:31:15.526 WARNING:  * Debugger is active!
+2024-12-30 00:31:15.529 INFO:  * Debugger PIN: 125-300-168
+2024-12-30 00:31:18.879 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:18] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:18.882 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:18] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:18.883 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:18] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:18.884 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:18] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:18.885 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:18] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:18.887 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:18] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:18.887 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:18] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:18.889 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:18] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:18.891 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:18] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:18.892 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:18] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:24.883 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:24] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:24.885 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:24] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:24.887 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:24] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:24.888 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:24] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:24.889 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:24] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:24.891 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:24] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:24.892 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:24] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:24.893 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:24] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:24.894 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:24] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:24.895 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:24] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:24.896 INFO: 127.0.0.1 - - [30/Dec/2024 00:31:24] "GET /api/default HTTP/1.1" 200 -
+2024-12-30 00:31:56.276 INFO:  * Detected change in '/Users/gametekker/Desktop/site/my-app/app.py', reloading
+2024-12-30 00:31:56.301 INFO:  * Restarting with stat
+2024-12-30 00:32:39.244 INFO:  * Restarting with stat
+2024-12-30 00:33:05.556 INFO:  * Restarting with stat
+2024-12-30 00:36:04.164 INFO:  * Restarting with stat

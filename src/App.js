@@ -1,6 +1,6 @@
 import logo from './logo.svg';
 import './App.css';
-import React, { useState, useEffect} from 'react';
+import React, { createContext, useState, useEffect, useMemo, useContext} from 'react';
 import { List, Calendar, Users } from 'lucide-react';
 import backgroundImage from './image.jpg' // if it's in your src folder
 import yinYang from './image.png'
@@ -10,7 +10,7 @@ import { ChevronLeft, ChevronRight, X, UserCheck, Check, LogIn } from 'lucide-re
 import { useNavigate } from 'react-router-dom';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useLocation, Navigate } from 'react-router-dom';
-import { User, Clock, Info, AlertCircle, Plus } from 'lucide-react';
+import { User, Clock, Info, AlertCircle, Plus, Edit2, Save, X as XIcon } from 'lucide-react';
 
 
 const fontGlobal="'Poppins'";
@@ -19,9 +19,99 @@ const BASE_URL = process.env.NODE_ENV === 'production'
   ? '' // Empty string for relative URLs in production
   : 'http://127.0.0.1:5000';
 
-var loginName="";
+const EventsContext = createContext(null);
+
+export const EventsProvider = ({ children }) => {
+  // State to store events data, loading status, and any errors
+  const [events, setEvents] = useState([]);
+  const [series, setSeries] = useState([]);
+  const [loginName, setLoginName] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // A helper function that handles fetching the data
+  const fetchEvents = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Attempt to retrieve token from sessionStorage
+      const token = sessionStorage.getItem('token');
+      let response;
+
+      if (token) {
+        // Try authenticated endpoint first
+        response = await fetch(`${BASE_URL}/api/user`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        // If token invalid or request fails, remove token and fallback
+        if (!response.ok) {
+          sessionStorage.removeItem('token');
+          response = await fetch(`${BASE_URL}/api/default`);
+        }
+      } else {
+        // No token, use default API
+        response = await fetch(`${BASE_URL}/api/default`);
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch data');
+      }
+
+      let data = await response.json();
+      console.log(data);
+
+      setEvents(data.items);
+      setSeries(data.series);
+      setLoginName(data.uname);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  // Provide a refresh function to re-fetch events
+  const refreshEvents = async () => {
+    await fetchEvents();
+  };
+
+  // The context value can include everything you want to expose
+  const value = {
+    events,
+    series,
+    loginName,
+    isLoading,
+    error,
+    refreshEvents
+  };
+
+  return (
+    <EventsContext.Provider value={value}>
+      {children}
+    </EventsContext.Provider>
+  );
+};
+const useEvents = () => {
+  const context = useContext(EventsContext);
+  console.log(context);
+  if (!context) {
+    throw new Error('useEvents must be used within an EventsProvider');
+  }
+  return context;
+};
+
 
 const LoginButton = () => {
+  const { loginName } = useEvents();
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -185,194 +275,266 @@ const TaijiClassCardRoot = ({
   classData,
   theme = {}
 }) => {
-  const initialStudents = React.useMemo(() => {
-    return (classData.students_signed_up || []).map((student, index) => {
-      if (typeof student === 'string') {
-        return { id: `student-${index}`, name: student };
-      }
-      return student;
-    });
-  }, [classData.students_signed_up]);
+  const mergedTheme = {
 
-  const [students, setStudents] = useState(initialStudents);
+    cardShadow: 'shadow-lg', // Added shadow for depth
+    cardBorderRadius: 'rounded-xl', // Made overall card more rounded
+    headerBg: 'bg-custom-blue-2',
+    headerText: 'text-beige',
+    headerFont: 'font-bold',
+    contentBg: 'bg-beige',
+    contentText: 'text-custom-blue-2',
+    contentFont: 'font-normal',
+    alertBg: 'bg-custom-blue-2',
+    alertText: 'text-beige',
+    primaryButtonBg: 'bg-blue-600',
+    primaryButtonHover: 'hover:bg-blue-700',
+    primaryButtonText: 'text-white',
+    secondaryButtonBg: 'bg-green-600',
+    secondaryButtonHover: 'hover:bg-green-700',
+    tertiaryButtonBg: 'bg-red-600',
+    tertiaryButtonHover: 'hover:bg-red-700',
+    secondaryButtonText: 'text-white',
+    buttonFont: 'font-medium',
+    iconColor: 'text-custom-blue-2',
+    footerBg: 'bg-gray-50',
+    ...theme,
+  };
+
+  const [localData, setLocalData] = useState(classData);
   const [newStudentName, setNewStudentName] = useState('');
-  const { title, days, times, date, info } = classData;
-  
-  const activeTheme = { ...defaultThemeRoot, ...theme };
+  const { refreshEvents } = useEvents();
 
-  const formatTime = (timeStr) => {
-    const time = new Date(`1970-01-01T${timeStr}`);
-    return time.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
+  const updateClassData = (newData) => {
+    setLocalData(newData);
   };
 
-  const getDayLabel = (daysStr) => {
-    const dayMap = {
-      'M': 'Monday',
-      'T': 'Tuesday',
-      'W': 'Wednesday',
-      'R': 'Thursday',
-      'F': 'Friday',
-      'S': 'Saturday',
-      'U': 'Sunday'
-    };
-    return daysStr.split('').map(day => dayMap[day]).join(', ');
+  const sendUpdateToBackend = async (updatedObject) => {
+    try {
+      const token = sessionStorage.getItem('token');
+      await fetch(`${BASE_URL}/api/update-class`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`  // Add this line
+        },
+        body: JSON.stringify(updatedObject)
+      });
+    } catch (error) {
+      console.error('Error updating class:', error);
+    }
   };
 
-  const formatDate = (dateStr) => {
-    const eventDate = new Date(dateStr);
-    return eventDate.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const handleTitleChange = (e) => {
+    updateClassData({ ...localData, title: e.target.value });
+  };
+
+  const handleDaysChange = (e) => {
+    updateClassData({ ...localData, days: e.target.value });
+  };
+
+  const handleTimesChange = (dayIndex, timeIndex, newValue) => {
+    const updatedTimes = [...localData.times];
+    const dayTimes = [...updatedTimes[dayIndex]];
+    dayTimes[timeIndex] = newValue;
+    updatedTimes[dayIndex] = dayTimes;
+    updateClassData({ ...localData, times: updatedTimes });
+  };
+
+  const handleInfoChange = (e) => {
+    updateClassData({ ...localData, info: e.target.value });
   };
 
   const handleRemoveStudent = (studentId) => {
-    setStudents(currentStudents => 
-      currentStudents.filter(student => student.id !== studentId)
-    );
-
-    if (classData.students_signed_up) {
-      classData.students_signed_up = classData.students_signed_up.filter(student => 
-        typeof student === 'string' ? student !== studentId : student.id !== studentId
-      );
-    }
-
-    fetch('api/removeuser', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        studentId,
-        classId: classData.id
-      }),
-    }).catch(error => {
-      console.error('Error removing student:', error);
-    });
+    const updatedStudents = localData.students_signed_up.filter(s => s.id !== studentId);
+    updateClassData({ ...localData, students_signed_up: updatedStudents });
   };
 
-  const handleAddStudent = (e) => {
-    e.preventDefault();
-    if (!newStudentName.trim()) return;
-
-    const newStudent = {
-      id: `student-${students.length}`,
-      name: newStudentName.trim()
-    };
-
-    // Update local state
-    setStudents(current => [...current, newStudent]);
-    
-    // Update the original object
-    if (classData.students_signed_up) {
-      classData.students_signed_up.push(newStudent);
-    } else {
-      classData.students_signed_up = [newStudent];
-    }
-
-    // Reset input
-    setNewStudentName('');
-
-    // Make API call to add student
-    fetch('api/adduser', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        student: newStudent,
-        classId: classData.id
-      }),
-    }).catch(error => {
-      console.error('Error adding student:', error);
+  const handleMarkPaid = (studentId) => {
+    const updatedStudents = localData.students_signed_up.map(s => {
+      if (s.id === studentId) {
+        return { ...s, paid: true };
+      }
+      return s;
     });
+    updateClassData({ ...localData, students_signed_up: updatedStudents });
+  };
+
+  const handleAddStudent = (newStudentName) => {
+    const newStudent = {
+      id: `student-${Date.now()}`,
+      name: newStudentName,
+      paid: true
+    };
+    const updatedStudents = [...localData.students_signed_up, newStudent];
+    updateClassData({ ...localData, students_signed_up: updatedStudents });
+  };
+
+  const handleNewStudentSubmit = (e) => {
+    e.preventDefault();
+    if (newStudentName.trim() !== '') {
+      handleAddStudent(newStudentName.trim());
+      setNewStudentName('');
+    }
   };
 
   return (
-    <div className={`w-full max-w-md rounded-lg overflow-hidden ${activeTheme.cardShadow} ${activeTheme.cardBg}`}>
-      {/* Header */}
-      <div className={`p-6 ${activeTheme.headerBg}`}>
-        <h2 className={`text-xl ${activeTheme.headerFont} ${activeTheme.headerText}`}>
-          {title}
-        </h2>
-      </div>
-      
-      {/* Content */}
-      <div className={`p-6 space-y-4 ${activeTheme.contentBg}`}>
-        <div className={`flex items-center gap-2 ${activeTheme.contentText}`}>
-          <Calendar className={`w-5 h-5 ${activeTheme.iconColor}`} />
-          <span className={activeTheme.contentFont}>{getDayLabel(days)}</span>
+    <div className={`${mergedTheme.scrollMode} overflow-y-auto`}>
+      <div className={`p-6 m-4 ${mergedTheme.cardBg} ${mergedTheme.cardShadow} ${mergedTheme.cardBorderRadius}`}>
+        {/* Header */}
+        <div className={`p-4 rounded-t-lg ${mergedTheme.headerBg} ${mergedTheme.headerText} ${mergedTheme.headerFont}`}>
+          <h2 className="text-xl">
+            {`${mergedTheme.type}`}
+          </h2>
         </div>
 
-        <div className={`flex items-center gap-2 ${activeTheme.contentText}`}>
-          <Clock className={`w-5 h-5 ${activeTheme.iconColor}`} />
-          <span className={activeTheme.contentFont}>
-            {times[0] && `${formatTime(times[0][0])} - ${formatTime(times[0][1])}`}
-          </span>
-        </div>
-
-        <div className={`flex items-center gap-2 ${activeTheme.contentText}`}>
-          <Info className={`w-5 h-5 ${activeTheme.iconColor}`} />
-          <span className={activeTheme.contentFont}>{info}</span>
-        </div>
-
-        <div className={`mt-4 p-3 rounded-md ${activeTheme.alertBg}`}>
-          <p className={`text-sm ${activeTheme.alertText}`}>
-            Next class: {formatDate(date)}
-          </p>
-        </div>
-
-        {/* Students List */}
-        <div className="mt-6">
-          <h3 className={`text-lg mb-3 ${activeTheme.headerText}`}>Enrolled Students</h3>
-          
-          {/* Add Student Form */}
-          <form onSubmit={handleAddStudent} className="mb-4 flex gap-2">
+        {/* Content */}
+        <div className={`p-6 rounded-b-lg ${mergedTheme.contentBg} ${mergedTheme.contentText} ${mergedTheme.contentFont}`}>
+          {/* Title */}
+          <div className="mb-4">
+            <label className="block font-semibold mb-2">Title:</label>
             <input
               type="text"
-              value={newStudentName}
-              onChange={(e) => setNewStudentName(e.target.value)}
-              placeholder="Enter student name"
-              className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={localData.title}
+              onChange={handleTitleChange}
             />
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-1"
-              disabled={!newStudentName.trim()}
-            >
-              <Plus className="w-4 h-4" />
-              Add
-            </button>
-          </form>
+          </div>
 
-          {students.length === 0 ? (
-            <p className={`text-sm ${activeTheme.contentText}`}>No students enrolled yet</p>
-          ) : (
-            <ul className="space-y-2">
-              {students.map((student) => (
-                <li 
-                  key={student.id}
-                  className={`flex items-center justify-between p-2 rounded-md ${activeTheme.contentBg} border border-gray-200`}
-                >
-                  <span className={activeTheme.contentText}>{student.name}</span>
-                  <button
-                    onClick={() => handleRemoveStudent(student.id)}
-                    className={`p-1 rounded-full hover:bg-red-100 text-red-500 transition-colors`}
-                    aria-label={`Remove ${student.name}`}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* Days */}
+          <div className="mb-4">
+            <label className="block font-semibold mb-2">Days:</label>
+            <input
+              type="text"
+              className="border border-gray-300 rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={localData.days}
+              onChange={handleDaysChange}
+            />
+          </div>
+
+          {/* Date */}
+          <div className="mb-4">
+            <label className="block font-semibold mb-2">Date:</label>
+            <p className="px-3 py-2 bg-gray-50 rounded-lg">{new Date(localData.date).toLocaleString()}</p>
+          </div>
+
+          {/* Times */}
+          <div className="mb-4">
+            <label className="block font-semibold mb-2">Times:</label>
+            {localData.times.map((dayTime, dayIndex) => (
+              <div key={`day-${dayIndex}`} className="flex space-x-2 my-1">
+                {dayTime.map((timeValue, timeIndex) => (
+                  <input
+                    key={`time-${timeIndex}`}
+                    type="text"
+                    className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={timeValue}
+                    onChange={(e) => handleTimesChange(dayIndex, timeIndex, e.target.value)}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {/* Info */}
+          <div className="mb-4">
+            <label className="block font-semibold mb-2">Info:</label>
+            <textarea
+              className="border border-gray-300 rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+              rows="3"
+              value={localData.info}
+              onChange={handleInfoChange}
+            />
+          </div>
+
+          {/* Full Status */}
+          <div className="mb-4">
+            <label className="block font-semibold mb-2">Full:</label>
+            <p className="px-3 py-2 bg-gray-50 rounded-lg">{localData.full ? 'Yes' : 'No'}</p>
+          </div>
+
+          {/* Students */}
+          <div className="mb-4">
+            <label className="block font-semibold mb-2">Students Signed Up:</label>
+            <div className="bg-white rounded-lg overflow-hidden">
+              <ul className="divide-y divide-gray-200">
+                {localData.students_signed_up.map((student) => (
+                  <li key={student.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
+                    <div className="flex items-center space-x-2">
+                      {student.paid ? (
+                        <span className="text-green-500 text-lg">●</span>
+                      ) : (
+                        <span className="text-yellow-500 text-lg">●</span>
+                      )}
+                      <span className="font-medium">{student.name}</span>
+                    </div>
+                    
+                    <div className="flex space-x-2">
+                      {!student.paid && (
+                        <button
+                          className={`${mergedTheme.secondaryButtonBg} ${mergedTheme.secondaryButtonHover} 
+                            ${mergedTheme.secondaryButtonText} ${mergedTheme.buttonFont} px-3 py-2 rounded-lg`}
+                          onClick={() => handleMarkPaid(student.id)}
+                        >
+                          Mark Paid
+                        </button>
+                      )}
+                      <button
+                        className={`${mergedTheme.primaryButtonBg} ${mergedTheme.primaryButtonHover} 
+                          ${mergedTheme.primaryButtonText} ${mergedTheme.buttonFont} px-3 py-2 rounded-lg`}
+                        onClick={() => handleRemoveStudent(student.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Add New Student Form */}
+            <form onSubmit={handleNewStudentSubmit} className="mt-4 flex space-x-2">
+              <input
+                type="text"
+                placeholder="New student name"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={newStudentName}
+                onChange={(e) => setNewStudentName(e.target.value)}
+              />
+              <button
+                type="submit"
+                className={`${mergedTheme.primaryButtonBg} ${mergedTheme.primaryButtonHover} 
+                  ${mergedTheme.primaryButtonText} ${mergedTheme.buttonFont} px-4 py-2 rounded-lg`}
+              >
+                Add
+              </button>
+            </form>
+          </div>
         </div>
+
+        {/* Save Button */}
+        <button
+          onClick={() => {
+            sendUpdateToBackend(localData);
+            refreshEvents();
+          }}
+          className={`${mergedTheme.primaryButtonBg} ${mergedTheme.primaryButtonHover} 
+            ${mergedTheme.primaryButtonText} ${mergedTheme.buttonFont} px-6 py-3 rounded-lg w-full mt-4`}
+        >
+          Save
+        </button>
+        {/* Delete Button */}
+        <button
+          onClick={() => {
+            localData.del=true;
+            sendUpdateToBackend(localData);
+            refreshEvents();
+          }}
+          className={`${mergedTheme.tertiaryButtonBg} ${mergedTheme.tertiaryButtonHover} 
+            ${mergedTheme.primaryButtonText} ${mergedTheme.buttonFont} px-6 py-3 rounded-lg w-full mt-4`}
+        >
+          Delete
+        </button>
       </div>
     </div>
   );
@@ -485,13 +647,65 @@ const ArtisticNav = ({ activeTab, setActiveTab }) => {
         </div>
         
         {/* Login/Signup button */}
-        <LoginButton/>
+        <EventsProvider><LoginButton/></EventsProvider>
       </div>
       
       {/* Bottom Decorative Lines */}
       <div className="absolute bottom-2 left-0 w-full h-px bg-black opacity-10"></div>
       <div className="absolute bottom-0 left-0 w-full h-px bg-black opacity-20"></div>
     </nav>
+  );
+};
+
+const ListSubPage = ({ isVisible, config }) => {
+  const { series, loginName } = useEvents();
+
+  return (
+    <SubPage isVisible={isVisible} config={config} className="flex flex-col h-full">
+      {series && series.length ? (
+        // Container with horizontal scroll
+        <div className="flex flex-col h-full">
+          {/* Scrollable container with padding to account for potential scrollbar */}
+          <div className="pb-4 -mb-4"> {/* Negative margin offsets padding */}
+            {/* Horizontal scroll container */}
+            <div className="flex overflow-x-auto gap-4 pb-4">
+              {series.map((item) => (
+                // Fixed width for cards with flex-shrink-0 to prevent compression
+                <div 
+                  key={item.id || item._id || item.name} 
+                  className={`flex-shrink-0 ${
+                    loginName === 'root' 
+                      ? 'w-160' 
+                      : 'w-80'
+                  }`}
+                >
+                  {loginName === 'root' ? (
+                    <TaijiClassCardRoot
+                      classData={item}
+                      theme={{'scrollMode':'max-h-full','type':'Edit Series'}}
+                      className="h-full overflow-hidden"
+                      onEventClick={() => {
+                        console.log('Root card clicked for:', item);
+                      }}
+                    />
+                  ) : (
+                    <TaijiClassCard
+                      classData={item}
+                      className="h-full overflow-hidden"
+                      onEventClick={() => {
+                        console.log('Regular card clicked for:', item);
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p>No data found.</p>
+      )}
+    </SubPage>
   );
 };
 
@@ -525,7 +739,6 @@ const CalendarSubPage = ({
   selected_event = 'bg-accent text-white',
   selected_event_II = 'bg-beige text-custom-blue-2 hover:bg-accent hover:text-custom-blue-2',
   initialDate = new Date(),
-  events = [], // New prop for events
   onDateSelect = () => {}
 }) => {
   const [currentDate, setCurrentDate] = useState(initialDate);
@@ -539,6 +752,17 @@ const CalendarSubPage = ({
     setSelectedEvent(event);
     setIsModalOpen(true);
   };
+
+  // Destructure data from context
+  const { events, series, loginName, isLoading, error, refreshEvents } = useEvents();
+
+  if (isLoading) {
+    return <div>Loading events...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -867,16 +1091,18 @@ const CalendarSubPage = ({
             >
               ✕
             </button>
-
-            {loginName==="root" ? 
-            (<TaijiClassCardRoot 
-              classData={selectedEvent}
-              onEventClick={() => setIsModalOpen(false)}
-            />) : 
-            (<TaijiClassCard 
-              classData={selectedEvent}
-              onEventClick={() => setIsModalOpen(false)}
-            />)}
+            <EventsProvider>
+              {loginName==="root" ? 
+              (<TaijiClassCardRoot 
+                classData={selectedEvent}
+                theme={{'scrollMode':'max-h-screen','type':'Edit Specific Class'}}
+                onEventClick={() => setIsModalOpen(false)}
+              />) : 
+              (<TaijiClassCard 
+                classData={selectedEvent}
+                onEventClick={() => setIsModalOpen(false)}
+              />)}
+            </EventsProvider>
 
           </div>
         </div>
@@ -885,7 +1111,7 @@ const CalendarSubPage = ({
   );
 };
 
-const TabbedViews = ({ activeTab, config, events}) => {
+const TabbedViews = ({ activeTab, config}) => {
 
   // Define the default config first
   const defaultConfig = {
@@ -901,15 +1127,18 @@ const TabbedViews = ({ activeTab, config, events}) => {
 
   return (
     <div className="w-full min-h-screen">
-      <SubPage isVisible={activeTab === 'list'} config={finalConfig}>
-        <h2 className="text-2xl font-bold mb-4">Page 1 - List View</h2>
-        {/* Content for List view */}
-      </SubPage>
+      <EventsProvider>
+        <ListSubPage
+          isVisible={activeTab === 'list'} config={finalConfig}
+        />
+      </EventsProvider>
 
-      <CalendarSubPage isVisible={activeTab === 'calendar'} config={finalConfig} events={events}>
-        <h2 className="text-2xl font-bold mb-4">Page 2 - Calendar View</h2>
-        {/* Content for Calendar view */}
-      </CalendarSubPage>
+      <EventsProvider>
+        <CalendarSubPage isVisible={activeTab === 'calendar'} config={finalConfig}>
+          <h2 className="text-2xl font-bold mb-4">Page 2 - Calendar View</h2>
+          {/* Content for Calendar view */}
+        </CalendarSubPage>
+      </EventsProvider>
 
       <SubPage isVisible={activeTab === 'contact'} config={finalConfig}>
         <h2 className="text-2xl font-bold mb-4">Page 3 - Contact View</h2>
@@ -925,6 +1154,7 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { refreshEvents } = useEvents(); // <-- here's your refresh function
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -949,8 +1179,10 @@ function LoginPage() {
       }
 
       console.log('Login successful, token received');
+      
       // Save token to session storage
       sessionStorage.setItem('token', data.token);
+      await refreshEvents();
       navigate('/');
       
     } catch (err) {
@@ -1036,70 +1268,8 @@ function LoginPage() {
 
 // Move the main content to a separate component
 const MainContent = ({ activeTab, setActiveTab, viewConfig }) => {
-  const [events, setEvents] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      // Check for existing token
-      const token = sessionStorage.getItem('token');
-      
-      try {
-        let response;
-        
-        if (token) {
-          // Try authenticated endpoint first
-          response = await fetch(`${BASE_URL}/api/user`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-
-          if (!response.ok) {
-            // If token is invalid, clear it
-            sessionStorage.removeItem('token');
-            // Fall back to default API
-            response = await fetch(`${BASE_URL}/api/default`);
-            console.log(response);
-          }
-        } else {
-          // No token, use default API
-          response = await fetch(`${BASE_URL}/api/default`);
-          console.log(response);
-        }
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch data');
-        }
-        
-        //see if the response is for a specific user acount - if it is, than uname is in there
-        var events = await response.json();
-        if (typeof events === 'object' && !Array.isArray(events) && 'uname' in events) {
-          [events, loginName] = [events.items, events.uname];
-        }
-        
-        //setEvents(data.events || []); // Assuming both APIs return events in the same format
-        console.log(events);
-        setEvents(events);
-
-      } catch (err) {
-        setError(err.message);
-        if (token) sessionStorage.removeItem('token');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []); // Run once on component mount
-
-  if (isLoading) {
-    return <div className="flex justify-center items-center h-64">Loading...</div>;
-  }
 
   if (error) {
     return <div className="text-red-500 text-center">{error}</div>;
@@ -1123,7 +1293,6 @@ const MainContent = ({ activeTab, setActiveTab, viewConfig }) => {
         <TabbedViews 
           activeTab={activeTab}
           config={viewConfig}
-          events={events}
         />
       </div>
     </>
@@ -1146,7 +1315,7 @@ function App() {
     <Router>
       <div className="App">
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login" element={<EventsProvider> <LoginPage /> </EventsProvider>} />
           <Route 
             path="*" 
             element={

@@ -1,11 +1,12 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from functools import wraps
 import datetime
 
 from flask_cors import CORS
-
+blob='name1'
+count=1
 app = Flask(__name__, static_folder='.', static_url_path='')
 
 @app.route('/')
@@ -34,10 +35,21 @@ users = {}
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
+        print(f"Request method: {request.method}")  # Debug print
+        
+        # Handle OPTIONS differently
+        if request.method == 'OPTIONS':
+            print("Handling OPTIONS request")  # Debug print
+            response = make_response()
+            response.headers['Access-Control-Allow-Methods'] = 'POST'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+            response.headers['Access-Control-Allow-Origin'] = '*'  # Or your specific origin
+            return response, 200  # Explicitly return 200 for OPTIONS
+        
+        print("Processing non-OPTIONS request")  # Debug print
         token = None
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
-            # Check if the header starts with 'Bearer '
             if auth_header.startswith('Bearer '):
                 token = auth_header.split(' ')[1]
         
@@ -45,7 +57,6 @@ def token_required(f):
             return jsonify({'message': 'Token is missing'}), 401
         
         try:
-            # Decode the token with the same parameters used for encoding
             data = jwt.decode(
                 jwt=token,
                 key=str(app.config['SECRET_KEY']),
@@ -54,12 +65,24 @@ def token_required(f):
             current_user = users.get(data['email'])
             if not current_user:
                 raise Exception('User not found')
+            result = f(current_user, *args, **kwargs)
+            print(f"Function result: {result}")  # Debug print
+            return result
         except Exception as e:
-            print(f"Token verification failed: {str(e)}")  # Debug print
+            print(f"Token verification failed: {str(e)}")
             return jsonify({'message': 'Token is invalid'}), 401
         
-        return f(current_user, *args, **kwargs)
     return decorated
+
+@app.route('/api/update-class', methods=['POST', 'OPTIONS'])
+@token_required
+def change(current_user):
+    print("NOW2")
+    if current_user and current_user['email']=='marthascheo@gmail.com':
+        globals()['blob']=f"name{globals()['count']}"
+        globals()['count']+=1
+        return jsonify({'message': 'Update successful'}), 200  # Add this
+    return jsonify({'message': 'Unauthorized'}), 401  # Add this for non-matching users
 
 @app.route('/api/signup', methods=['POST'])
 def signup():
@@ -135,6 +158,7 @@ def verify_token(current_user):
 @app.route('/api/user')
 @token_required
 def get_user(current_user):
+    print("NOW")
     if current_user['email']=='marthascheo@gmail.com':
         events = {
             'items': [
@@ -218,7 +242,36 @@ def get_user(current_user):
                     ]
                 }
             ],
-            'uname': 'root'
+            'uname': 'root',
+            'series': [{
+                    "title": blob,
+                    "days": "MWF",
+                    "date": "2024-12-26T12:30:00",
+                    "times": [["09:00:00", "01:00:00"], ["09:00:00", "01:00:00"], ["09:00:00", "01:00:00"]],
+                    "info": "short desc",
+                    "full": True,
+                    "registered": False,
+                    "students_signed_up": [
+                        {"id": "student-0", "name": "bobby"},
+                        {"id": "student-1", "name": "joe"},
+                        {"id": "student-2", "name": "rudolph"},
+                        {"id": "student-3", "name": "santa"}
+                    ]
+                },{
+                    "title": "Martha's",
+                    "days": "MWF",
+                    "date": "2024-12-26T12:30:00",
+                    "times": [["09:00:00", "01:00:00"], ["09:00:00", "01:00:00"], ["09:00:00", "01:00:00"]],
+                    "info": "short desc",
+                    "full": True,
+                    "registered": False,
+                    "students_signed_up": [
+                        {"id": "student-0", "name": "bobby"},
+                        {"id": "student-1", "name": "joe"},
+                        {"id": "student-2", "name": "rudolph"},
+                        {"id": "student-3", "name": "santa"}
+                    ]
+                }]
         }
         return events
     else:
@@ -274,7 +327,7 @@ def get_user(current_user):
 
 @app.route('/api/default')
 def routeit():
-    events = [
+    events = {'items':[
         {
             "title": "Morning Meeting",
             "days": "MWF",
@@ -320,8 +373,25 @@ def routeit():
             "full": True,
             "registered": False
         }
-    ]
+    ],'uname':'','series':[{
+            "title": "Martha's",
+            "days": "MWF",
+            "date": "2024-12-26T12:30:00",
+            "times": [["09:00:00", "01:00:00"], ["09:00:00", "01:00:00"], ["09:00:00", "01:00:00"]],
+            "info": "short desc",
+            "full": True,
+            "registered": False
+        },{
+            "title": blob,
+            "days": "MWF",
+            "date": "2024-12-26T12:30:00",
+            "times": [["09:00:00", "01:00:00"], ["09:00:00", "01:00:00"], ["09:00:00", "01:00:00"]],
+            "info": "short desc",
+            "full": True,
+            "registered": False
+        }]}
     return jsonify(events)
 
 if __name__ == '__main__':
     app.run(debug=True)
+
